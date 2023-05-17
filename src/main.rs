@@ -1,7 +1,9 @@
 use std::fs::File;
-use std::io::Write;
+use std::io::{Write, BufReader, BufRead};
+use std::fmt::Display;
 
 use itertools::Itertools;
+use regex::Regex;
 
 // Tree Node structure
 #[derive(Debug, Clone)]
@@ -21,6 +23,16 @@ impl TreeNode {
     }
 }
 
+impl Display for TreeNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut string = format!("{:?}\n", self.index);
+        for element in self.edge_table.iter() {
+            string += format!("{}\n", element).as_str();
+        }
+        write!(f, "{}", string)
+    }
+}
+
 // Edge structure that is labeled with the part of the suffix it links to
 #[derive(Debug, Clone)]
 pub struct Edge {
@@ -36,6 +48,12 @@ impl Edge {
             label_length,
             target_node
         }
+    }
+}
+
+impl Display for Edge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "└─{}──{}", self.label, self.target_node)
     }
 }
 
@@ -165,30 +183,36 @@ pub fn write_tree_in_file(root: TreeNode, filename: String) {
     file.write_all(format!("{:?}", root).as_bytes()).unwrap();
 }
 
+// Reads a file and returns a vector of strings that needs to be turned into a tree
+pub fn read_file(filename: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let file = File::open(filename)?;
+    let reader = BufReader::new(file);
+    let re = Regex::new(r"^\S[0-9]*$").unwrap();
+    let mut lines_to_tree: Vec<String> = Vec::new();
+
+    for line in reader.lines() {
+        let line = line?;
+
+        if re.is_match(&line) {
+            lines_to_tree.push(line);
+        }
+    }
+
+    Ok(lines_to_tree)
+}
+
 pub fn main() {
     // let test_string = "121112212221$".to_string();
-    let small_string = "aba$".to_string();
-    // let mut root = TreeNode::new(0, None);
 
-    // let (sorted_pairs, ranked_string) = rank_string(test_string);
+    let strings = read_file("data.txt").unwrap();
+    let mut i = 0;
 
-    // println!("{:?} | {:?}", sorted_pairs, ranked_string);
-
-    // for i in 0..ranked_string.len() {
-    //     root = insert_suffix(root, ranked_string[i..].to_string(), i as u32, 0);
-    // }
-
-    // root = contract_trie(root).0;
-
-    let root = make_tree(small_string);
-
-    write_tree_in_file(root.clone(), "tree.txt".to_string());
+    for element in strings {
+        let (_pairs, ranked_string) = rank_string(element);
+        let tree = make_tree(ranked_string);
+        let (contracted_tree, _, _) = contract_trie(tree); 
+        write_tree_in_file(contracted_tree, format!("tree{}.txt", i));
+        i += 1;
+    }
     
-    println!("{:?}", root);
-
-    let root = contract_trie(root).0;
-    
-    write_tree_in_file(root.clone(), "compact_tree.txt".to_string());
-
-    print!("{:?}", root);
 }
