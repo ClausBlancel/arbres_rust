@@ -80,7 +80,7 @@ pub fn rank_string(string: String) -> (Vec<(char, char)>, String) {
 }
 
 // Takes a tree node and a suffix as arguments and insert the suffix in the tree
-pub fn insert_suffix(root: TreeNode, suffix: String, suffix_index: u32, lvl: u32) -> TreeNode {
+pub fn insert_suffix(root: TreeNode, suffix: String, suffix_index: u32) -> TreeNode {
     let mut current_node = root;
     let current_char = suffix.chars().nth(0).unwrap();
     let mut found = false;
@@ -94,7 +94,7 @@ pub fn insert_suffix(root: TreeNode, suffix: String, suffix_index: u32, lvl: u32
 
             // If there is one we replace it with a new edge that will have an updated target node
             if element.label.chars().next().unwrap() == current_char {
-                current_node.edge_table.push(Edge::new(current_char.to_string(), 1, insert_suffix(element.target_node.clone(), suffix[1..].to_string(), suffix_index, lvl + 1)));
+                current_node.edge_table.push(Edge::new(current_char.to_string(), 1, insert_suffix(element.target_node.clone(), suffix[1..].to_string(), suffix_index)));
                 current_node.edge_table.remove(i);
                 found = true;
                 break;
@@ -104,13 +104,14 @@ pub fn insert_suffix(root: TreeNode, suffix: String, suffix_index: u32, lvl: u32
 
         // If we didn't find an edge that starts with the current char we create a new one
         if !found {
-            current_node.edge_table.push(Edge::new(current_char.to_string(), 1, insert_suffix(TreeNode::new(None), suffix[1..].to_string(), suffix_index, lvl + 1)));
+            current_node.edge_table.push(Edge::new(current_char.to_string(), 1, insert_suffix(TreeNode::new(None), suffix[1..].to_string(), suffix_index)));
         }
     } else {
         // If we are at the end of the suffix we create the ending edge and node that contains the index of the suffix
         current_node.edge_table.push(Edge::new(current_char.to_string(), 1, TreeNode::new(Some(suffix_index))));
     }
 
+    // We sort the edges by their label to make sure the tree is in alphabetical order
     current_node.edge_table.sort_by(|a, b| a.label.cmp(&b.label));
 
     // We return the updated node for recursive calls
@@ -169,7 +170,7 @@ pub fn make_tree(string: String) -> TreeNode {
 
     // We insert every suffix of the string in the tree by looping over the string
     for i in 0..string.len() {
-        root = insert_suffix(root, string[i..].to_string(), (2 * (i + 1) - 1) as u32, 0);
+        root = insert_suffix(root, string[i..].to_string(), (2 * (i + 1) - 1) as u32);
     }
 
     // Updated tree
@@ -183,8 +184,6 @@ pub fn write_tree_in_file(root: TreeNode, filename: String) {
     file.write_all(format!("{:?}", root).as_bytes()).unwrap();
 }
 
-
-
 // Reads a file and returns a vector of strings that needs to be turned into a tree
 pub fn read_file(filename: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let file = File::open(filename)?;
@@ -192,34 +191,34 @@ pub fn read_file(filename: &str) -> Result<Vec<String>, Box<dyn std::error::Erro
     let re = Regex::new(r"^\S[0-9]*$").unwrap();
     let mut lines_to_tree: Vec<String> = Vec::new();
 
+    // We loop over every line of the file and check if it matches the regex
     for line in reader.lines() {
         let line = line?;
 
+        // If it does we add it to the vector
         if re.is_match(&line) {
             lines_to_tree.push(line);
         }
     }
 
+    // We return the vector
     Ok(lines_to_tree)
 }
 
 pub fn main() {
+    // In the strings vector we have every string that needs to be turned into a tree
     let strings = read_file("data.txt").unwrap();
     let mut i = 0;
 
+    // We loop over every string and turn it into a tree
     for element in strings {
         let (_pairs, ranked_string) = rank_string(element + "~");
         let tree = make_tree(ranked_string);
         let (contracted_tree, _, _) = contract_trie(tree); 
+
+        // We write the tree in a file
         write_tree_in_file(contracted_tree, format!("tree{}.txt", i));
         i += 1;
     }
-
-    // let test_string = "010111000~".to_string();
-
-    // let (_pairs, ranked_string) = rank_string(test_string);
-    // let tree = make_tree(ranked_string);
-    // let (contracted_tree, _, _) = contract_trie(tree);
-    // write_tree_in_file(contracted_tree, "tree.txt".to_string());
     
 }
